@@ -1,0 +1,223 @@
+%using this function to check the time taken for the algo to execute------
+start_time=datetime("now");
+
+%taking an rgb image as input by giving its path --------------------------------------------
+
+rgbImage=imread('./Resizes/c4500.jpg');
+
+
+%storing the dimensions of image in the following array variables using size function-----------------------------------------------------
+
+[Row,Columns,channels]=size(rgbImage);
+
+%converting the image to hsv and gray scale using pre-defined functions
+and extracting each channel as a different component from the converted hsv image...............................
+
+grayImage=rgb2gray(rgbImage);
+hsvImage=rgb2hsv(rgbImage);
+hChannel=hsvImage(:,:,1);
+sChannel=hsvImage(:,:,2);
+vChannel=hsvImage(:,:,3);
+
+%normalising the extracted components for easy calculations-----------------
+tempVChannel=round(vChannel.*255);
+sChannel=round(sChannel.*255);
+
+%finding gray and s channel frequencies help us in calculating mean  -----------------------------------
+
+grayfreq=zeros(1,256);
+sfreq=zeros(1,256);
+for i=1:Row
+    for j=1:Columns
+        grayfreq(grayImage(i,j)+1)=grayfreq(grayImage(i,j)+1)+1;
+        sfreq(sChannel(i,j)+1)=sfreq(sChannel(i,j)+1)+1;
+    end
+end
+
+%finding maximum Value in V channel---------------------------------------------
+
+vmaxValue=max(grayImage(:));
+
+% applying Linear Enhancment on the v channel of gray image  --------------------------------------------------------
+
+enhancedVChannelImg=grayImage(:,:);
+for i=1:Row
+    for j=1:Columns
+        if grayImage(i,j)>=2 && grayImage(i,j)<220
+            enhancedVChannelImg(i,j)=uint8(255/vmaxValue)*(tempVChannel(i,j));
+        end
+    end
+end
+
+
+% finding  gamma value to apply on the v channel%..........................................................
+
+%calculating mean of the v channel extracted from graynimage-----------------
+
+tempenhance=enhancedVChannelImg;
+num=0;
+den=0;
+for i=1:256
+    num=num+(grayfreq(i)*(i-1));
+   
+end
+
+mean=floor(num/(Row*Columns));
+
+
+%calculating c to convert the gray levels into a constant-----------------
+
+num1=0;den1=0;
+
+for i=1:mean
+    num1=num1+grayfreq(i)*(i-1);
+    den1=grayfreq(i)+den1;
+end
+c=num1/(128*den1);
+num
+
+%enlarging the found constant c----------------------------------------
+
+c1=1/(1+exp(-c));
+c1=floor(c1);
+
+%Calculating PDF which helps in calculating cdf-------------------------
+
+pdf=zeros(1,256);
+for i=1:256
+    pdf(i)=grayfreq(i)/(Row*Columns);
+end
+
+%Calculating CDF to find the gamma value---------------------------------
+
+cdf=0;
+for i=1:128
+    cdf=cdf+pdf(i);
+end
+
+%Calculating gamma value---------------------------------------------
+
+w=0.48;
+gamma=(w*c1)+((1-w)*cdf);
+
+
+% applying gamma on every pixxel--------------------------------
+tempold=0;
+oldvalue=6;
+
+for i=1:Row
+    for j=1:Columns
+        %....................applying gamma..............................
+        if enhancedVChannelImg(i,j)>=0 
+            oldvalue=enhancedVChannelImg(i,j);
+            oldvalue=double(oldvalue)/255;
+            tempold=oldvalue^gamma;
+  %.....................%VE = exp(log(V) - log(VL).......................
+            change1=tempold;
+            change2=vChannel(i,j);
+            if (change1~=0)
+                change1=log(change1);
+            end
+            if (change2~=0)
+                change2=log(change2);
+            end
+            if(change1~=0)
+                tempold=exp(change2-change1);
+            end
+     %...................Dynamic Range Expnsion..........................
+            temp1=tempold;
+            if enhancedVChannelImg(i,j)<200
+                temp1=2*(temp1^2);
+                temp1=temp1*255;
+                enhancedVChannelImg(i,j)=floor(temp1);
+            end
+
+        end
+    end
+end
+
+
+enhancedVChannelImg(Row,Columns)
+
+%saturation adjustment--------------------------------------------------- 
+%calculating VES--------------------------------------------------------
+vefreq=zeros(1,256);
+for i=1:Row
+    for j=1:Columns
+        vefreq(enhancedVChannelImg(i,j)+1)=vefreq(enhancedVChannelImg(i,j)+1)+1;
+    end
+end
+
+%calculating s mean and ve mean-----------------------------------------
+num=0;num1=0;den1=0;
+den=0;
+for i=1:256
+    num=num+sfreq(i)*(i-1);
+    den=den+sfreq(i);
+    num1=num1+vefreq(i)*(i-1);
+    den1=den1+vefreq(i);
+end
+Smean=num/den;
+VEmean=num1/den1;
+
+%calculating VES--------------------------------------------------------
+
+VES=VEmean-Smean;
+VES=VES/255;
+
+%Schannel adjustment-----------------------------------------------------
+
+enhancedSChannelImg=sChannel;
+enhancedSChannelImg1 = enhancedSChannelImg./255;
+
+
+
+%applyingSchannel
+n=0;
+if VES>=0
+    n=1;
+end
+tempImg=sChannel./255;
+tempPow=1+((-1)^(2-n))*(((abs(VES))^2)+(abs(VES)));
+tempImg=tempImg.^(tempPow);
+enhancedSChannelImg1=tempImg;
+
+
+%enhancedSChannelImg=enhancedSChannelImg./255;
+
+enhancedVChannelImg=double(enhancedVChannelImg)./255;
+
+
+%.................................................................
+%updating hsvImage
+
+UpdatedHSVImage=cat(3,hChannel,enhancedSChannelImg1,enhancedVChannelImg);
+im2double(UpdatedHSVImage);
+%convertion of hsvImage to rgbImage
+
+outputImage=hsv2rgb(UpdatedHSVImage);
+end_time=datetime("now");
+diff=end_time-start_time;
+milliseconds(diff)/1000
+%..................................................................
+% plotting histograms
+
+subplot(2,2,1);
+imshow(rgbImage);
+title('Original Image');
+subplot(2,2,2);
+imshow(outputImage);
+title('Enhanced Image');
+subplot(2,2,3);
+histogram(vChannel,'EdgeColor',"#0080ff");
+%imshow(tempenhance);
+title('Original V channel');
+subplot(2,2,4);
+histogram(enhancedVChannelImg,'EdgeColor',"#0080ff");
+title('Enhanced V channel')
+
+
+imwrite(outputImage,'./Output1.jpg');
+
+
+
