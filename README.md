@@ -27,7 +27,7 @@ The implementation is based on the method described in the reference paper provi
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Vaishu-999/Low-Light-Enhancement-Using-a-Retinex-Based-Fast-Algorithm.git
+   git clone https://github.com/Vaishu-999/Low-Light-Image-Enhancement-Using-a-Retinex-Based-Fast-Algorithm.git
    cd Low-Light-Enhancement-Using-a-Retinex-Based-Fast-Algorithm
 ## Prerequisites
 1. Install the required Python dependencies:
